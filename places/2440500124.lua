@@ -8,9 +8,16 @@ local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
 local PathfindingService = game:GetService("PathfindingService")
 local ProximityPromptService = game:GetService("ProximityPromptService")
+
+--// Loading Wait \\--
+if not game.IsLoaded then game.Loaded:Wait() end
+if Players.LocalPlayer.PlayerGui:FindFirstChild("LoadingUI") and Players.LocalPlayer.PlayerGui.LoadingUI.Enabled then
+    repeat task.wait() until not game.Players.LocalPlayer.PlayerGui.LoadingUI.Enabled
+end
 
 --// Variables \\--
 local fireTouch = firetouchinterest or firetouchtransmitter
@@ -564,6 +571,7 @@ local Script = {
         Chest = {},
         Door = {},
         Entity = {},
+        SideEntity = {},
         Gold = {},
         Guiding = {},
         Item = {},
@@ -580,7 +588,7 @@ local Script = {
     }
 }
 
-local EntityName = {"BackdoorRush", "BackdoorLookman", "RushMoving", "AmbushMoving", "Eyes", "Screech", "Halt", "JeffTheKiller", "A60", "A120"}
+local EntityName = {"BackdoorRush", "BackdoorLookman", "RushMoving", "AmbushMoving", "Eyes", "JeffTheKiller", "A60", "A120"}
 local SideEntityName = {"FigureRig", "GiggleCeiling", "GrumbleRig", "Snare"}
 local ShortNames = {
     ["BackdoorRush"] = "Blitz",
@@ -661,6 +669,8 @@ local entityModules = ReplicatedStorage:WaitForChild("ClientModules"):WaitForChi
 local gameData = ReplicatedStorage:WaitForChild("GameData")
 local floor = gameData:WaitForChild("Floor")
 local latestRoom = gameData:WaitForChild("LatestRoom")
+
+local liveModifiers = ReplicatedStorage:WaitForChild("LiveModifiers")
 
 local floorReplicated
 local remotesFolder
@@ -833,7 +843,6 @@ function Script.Functions.ESP(args: ESP)
     local tableIndex = #Script.ESPTable[ESPManager.Type] + 1
 
     if ESPManager.IsEntity and ESPManager.Object.PrimaryPart.Transparency == 1 then
-        ESPManager.Object:SetAttribute("Transparency", ESPManager.Object.PrimaryPart.Transparency)
         ESPManager.Humanoid = Instance.new("Humanoid", ESPManager.Object)
         ESPManager.Object.PrimaryPart.Transparency = 0.99
     end
@@ -917,11 +926,11 @@ function Script.Functions.ESP(args: ESP)
         end
 
         if ESPManager.IsEntity and ESPManager.Object then
-            if ESPManager.Object.PrimaryPart then
-                ESPManager.Object.PrimaryPart.Transparency = ESPManager.Object.PrimaryPart:GetAttribute("Transparency")
-            end
             if ESPManager.Humanoid then
                 ESPManager.Humanoid:Destroy()
+            end
+            if ESPManager.Object.PrimaryPart then
+                ESPManager.Object.PrimaryPart.Transparency = ESPManager.Object.PrimaryPart:GetAttribute("Transparency")
             end
         end
 
@@ -1115,6 +1124,16 @@ function Script.Functions.EntityESP(entity)
         Text = Script.Functions.GetShortName(entity.Name),
         Color = Options.EntityEspColor.Value,
         IsEntity = entity.Name ~= "JeffTheKiller",
+    })
+end
+
+function Script.Functions.SideEntityESP(entity)
+    Script.Functions.ESP({
+        Type = "SideEntity",
+        Object = entity,
+        Text = Script.Functions.GetShortName(entity.Name),
+        TextParent = entity.PrimaryPart,
+        Color = Options.EntityEspColor.Value,
     })
 end
 
@@ -1508,28 +1527,6 @@ function Script.Functions.ChildCheck(child)
 
         if not table.find(SlotsName, child.Name) then
             child.Transparency = 1
-        end
-    end
-
-
-    if Toggles.EntityESP.Value then
-        if table.find(SideEntityName, child.Name) then
-            if not child.PrimaryPart then
-                local waiting = 0
-
-                repeat
-                    waiting += task.wait()
-                until child.PrimaryPart or waiting > 3
-                task.wait(0.2)
-            end
-
-            Script.Functions.ESP({
-                Type = "Entity",
-                Object = child,
-                Text = Script.Functions.GetShortName(child.Name),
-                TextParent = child.PrimaryPart,
-                Color = Options.EntityEspColor.Value
-            })
         end
     end
 end
@@ -2482,22 +2479,54 @@ end
 task.spawn(function()
     if isHotel then
         local Hotel_AntiEntityGroupBox = Tabs.Floor:AddLeftGroupbox("Anti-Entity") do
-
             Hotel_AntiEntityGroupBox:AddToggle("AntiSeekObstructions", {
                 Text = "Anti-Seek Obstructions",
                 Default = false
             })
+        end
 
-            Toggles.AntiSeekObstructions:OnChanged(function(value)
-                for i, v in pairs(workspace.CurrentRooms:GetDescendants()) do
-                    if v.Name == "ChandelierObstruction" or v.Name == "Seek_Arm" then
-                        for _, obj in pairs(v:GetDescendants()) do
-                            if v:IsA("BasePart") then v.CanTouch = not value end
-                        end
+        local Hotel_ModifiersGroupBox = Tabs.Floor:AddRightGroupbox("Modifiers") do
+            Hotel_ModifiersGroupBox:AddToggle("AntiA90", {
+                Text = "Anti-A90",
+                Default = false
+            })
+
+            Hotel_ModifiersGroupBox:AddToggle("NoJammin", {
+                Text = "No Jammin",
+                Default = false
+            })
+        end
+
+        Toggles.AntiSeekObstructions:OnChanged(function(value)
+            for _, v in pairs(workspace.CurrentRooms:GetDescendants()) do
+                if v.Name == "ChandelierObstruction" or v.Name == "Seek_Arm" then
+                    for _, obj in pairs(v:GetDescendants()) do
+                        if v:IsA("BasePart") then v.CanTouch = not value end
                     end
                 end
-            end)
-        end
+            end
+        end)
+
+        Toggles.AntiA90:OnChanged(function(value)
+            if not mainGame then return end
+            local module = mainGame:FindFirstChild("A90", true) or mainGame:FindFirstChild("_A90", true)
+        
+            if module then
+                module.Name = value and "_A90" or "A90"
+            end
+        end)
+
+        Toggles.NoJammin:OnChanged(function(value)
+            if not liveModifiers:FindFirstChild("Jammin") then return end
+
+            if mainGame then
+                local jamSound = mainGame:FindFirstChild("Jam", true)
+                if jamSound then jamSound.Playing = not value end
+            end
+
+            local jamminEffect = SoundService:FindFirstChild("Jamming", true)
+            if jamminEffect then jamminEffect.Enabled = not value end
+        end)
     elseif isMines then
         local Mines_MovementGroupBox = Tabs.Floor:AddLeftGroupbox("Movement") do
             Mines_MovementGroupBox:AddToggle("EnableJump", {
@@ -3894,19 +3923,19 @@ end)
 
 Toggles.EntityESP:OnChanged(function(value)
     if value then
-        for _, entity in pairs(workspace.CurrentRooms:GetDescendants()) do
-            if table.find(SideEntityName, entity.Name) then
-                Script.Functions.ESP({
-                    Type = "Entity",
-                    Object = entity,
-                    Text = Script.Functions.GetShortName(entity.Name),
-                    TextParent = entity.PrimaryPart,
-                    Color = Options.EntityEspColor.Value
-                })
+        local currentRoomModel = workspace.CurrentRooms:FindFirstChild(currentRoom)
+        if currentRoomModel then
+            for _, entity in pairs(currentRoomModel:GetDescendants()) do
+                if table.find(SideEntityName, entity.Name) then
+                    Script.Functions.SideEntityESP(entity)
+                end
             end
         end
     else
         for _, esp in pairs(Script.ESPTable.Entity) do
+            esp.Destroy()
+        end
+        for _, esp in pairs(Script.ESPTable.SideEntity) do
             esp.Destroy()
         end
     end
@@ -4319,6 +4348,11 @@ Library:GiveSignal(localPlayer:GetAttributeChangedSignal("CurrentRoom"):Connect(
             objectiveEsp.Destroy()
         end
     end
+    if Toggles.EntityESP.Value then
+        for _, sideEntityESP in pairs(Script.ESPTable.SideEntity) do
+            sideEntityESP.Destroy()
+        end
+    end
     if Toggles.ItemESP.Value then
         for _, itemEsp in pairs(Script.ESPTable.Item) do
             itemEsp.Destroy()
@@ -4344,6 +4378,10 @@ Library:GiveSignal(localPlayer:GetAttributeChangedSignal("CurrentRoom"):Connect(
         for _, asset in pairs(currentRoomModel:GetDescendants()) do
             if Toggles.ObjectiveESP.Value then
                 task.spawn(Script.Functions.ObjectiveESP, asset)
+            end
+            
+            if Toggles.EntityESP.Value and table.find(SideEntityName, asset.Name) then    
+                task.spawn(Script.Functions.SideEntityESP, asset)
             end
 
             if Toggles.ItemESP.Value and Script.Functions.ItemCondition(asset) then
@@ -4376,21 +4414,27 @@ Library:GiveSignal(playerGui.ChildAdded:Connect(function(child)
                 mainGame = mainUI:WaitForChild("Initiator"):WaitForChild("Main_Game")
 
                 if mainGame then
-                    if not mainGame:WaitForChild("RemoteListener", 5) then return end
-
-                    if Toggles.AntiScreech.Value then
-                        local module = mainGame:FindFirstChild("Screech", true)
-
-                        if module then
-                            module.Name = "_Screech"
+                    if mainGame:WaitForChild("Health", 5) then
+                        if isHotel and Toggles.NoJammin.Value and liveModifiers:FindFirstChild("Jammin") then
+                            local jamSound = mainGame:FindFirstChild("Jam", true)
+                            if jamSound then jamSound.Playing = false end
                         end
                     end
 
-                    if isRooms and Toggles.AntiA90.Value then
-                        local module = mainGame:FindFirstChild("A90", true)
-
-                        if module then
-                            module.Name = "_A90"
+                    if mainGame:WaitForChild("RemoteListener", 5) then
+                        if Toggles.AntiScreech.Value then
+                            local module = mainGame:FindFirstChild("Screech", true)
+    
+                            if module then
+                                module.Name = "_Screech"
+                            end
+                        end
+                        if isRooms and Toggles.AntiA90.Value then
+                            local module = mainGame:FindFirstChild("A90", true)
+    
+                            if module then
+                                module.Name = "_A90"
+                            end
                         end
                     end
                 end
@@ -4625,7 +4669,7 @@ Library:GiveSignal(RunService.RenderStepped:Connect(function()
         if Toggles.AntiEyes.Value and (workspace:FindFirstChild("Eyes") or workspace:FindFirstChild("BackdoorLookman")) then
             if not isFools then
                 -- lsplash meanie for removing other args in motorreplication
-                remotesFolder.MotorReplication:FireServer(-650)
+                remotesFolder.MotorReplication:FireServer(-649)
             else
                 remotesFolder.MotorReplication:FireServer(0, -90, 0, false)
             end
