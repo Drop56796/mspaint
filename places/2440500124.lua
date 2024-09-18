@@ -596,6 +596,11 @@ local HidingPlaceName = {
     ["Rooms"] = "Locker",
     ["Mines"] = "Locker"
 }
+local CutsceneExclude = {
+    "FigureHotelChase",
+    "Elevator1",
+    "MinesFinale"
+}
 local SlotsName = {
     "Oval",
     "Square",
@@ -618,7 +623,6 @@ local PromptTable = {
         ["UnlockPrompt"] = true,
         ["ValvePrompt"] = false,
     },
-
     AuraObjects = {
         "Lock",
         "Button"
@@ -638,8 +642,7 @@ local PromptTable = {
         "UnlockPrompt",
         "ValvePrompt"
     },
-
-    Objects = {
+    ClipObjects = {
         "LeverForGate",
         "LiveBreakerPolePickup",
         "LiveHintBook",
@@ -686,6 +689,7 @@ local isFools = floor.Value == "Fools"
 local currentRoom = localPlayer:GetAttribute("CurrentRoom") or 0
 local nextRoom = currentRoom + 1
 
+local speedBypassing = false
 local lastSpeed = 0
 local bypassed = false
 
@@ -1025,11 +1029,11 @@ function Script.Functions.ObjectiveESP(child)
             Color = Options.ObjectiveEspColor.Value
         })
     -- Hotel
-    elseif child.Name == "EletricalKeyObtain" then
+    elseif child.Name == "ElectricalKeyObtain" then
         Script.Functions.ESP({
             Type = "Objective",
             Object = child,
-            Text = "Eletrical Key",
+            Text = "Electrical Key",
             Color = Options.ObjectiveEspColor.Value
         })
     elseif child.Name == "LeverForGate" then
@@ -1354,7 +1358,7 @@ function Script.Functions.ChildCheck(child)
                 child.HoldDuration = 0
             end
     
-            if Toggles.PromptClip.Value and (table.find(PromptTable.Clip, child.Name) or table.find(PromptTable.Objects, child.Parent.Name)) then
+            if Toggles.PromptClip.Value and (table.find(PromptTable.Clip, child.Name) or table.find(PromptTable.ClipObjects, child.Parent.Name)) then
                 child.RequiresLineOfSight = false
                 if child.Name == "ModulePrompt" then
                     child.Enabled = true
@@ -1728,6 +1732,10 @@ function Script.Functions.SetupCharacterConnection(newCharacter)
 
     collision = character:WaitForChild("Collision")
     if collision then
+        if Toggles.UpsideDown.Value then
+            collision.Rotation = Vector3.new(collision.Rotation.X, collision.Rotation.Y, -90)
+        end
+
         collisionClone = collision:Clone()
         collisionClone.CanCollide = false
         collisionClone.Massless = true
@@ -3150,7 +3158,7 @@ end)
 
 Toggles.PromptClip:OnChanged(function(value)
     for _, prompt in pairs(workspace.CurrentRooms:GetDescendants()) do        
-        if prompt:IsA("ProximityPrompt") and not table.find(PromptTable.Excluded, prompt.Name) and (table.find(PromptTable.Clip, prompt.Name) or table.find(PromptTable.Objects, prompt.Parent.Name)) then
+        if prompt:IsA("ProximityPrompt") and not table.find(PromptTable.Excluded, prompt.Name) and (table.find(PromptTable.Clip, prompt.Name) or table.find(PromptTable.ClipObjects, prompt.Parent.Name)) then
             if value then
                 prompt.RequiresLineOfSight = false
                 if prompt.Name == "ModulePrompt" then
@@ -3230,14 +3238,19 @@ Toggles.UpsideDown:OnChanged(function(value)
     if not collision then return end
     
     local rotation = collision.Rotation
-    collision.Rotation = value and Vector3.new(rotation.X, rotation.Y, 90) or Vector3.new(rotation.X, rotation.Y, -90)
+    collision.Rotation = value and Vector3.new(rotation.X, rotation.Y, -90) or Vector3.new(rotation.X, rotation.Y, 90)
 end)
 
 function Script.Functions.SpeedBypass()
+    if speedBypassing then return end
+    speedBypassing = true   
+
     local SpeedBypassMethod = Options.SpeedBypassMethod.Value
 
     local function cleanup()
         -- reset if changed speed bypass method
+        speedBypassing = false
+
         if collisionClone then
             print("Cleaning up...")
             if SpeedBypassMethod == "Massless" then
@@ -3548,12 +3561,24 @@ Toggles.AntiLag:OnChanged(function(value)
 end)
 
 Toggles.NoCutscenes:OnChanged(function(value)
-    if not mainGame then return end
+    if mainGame then
+        local cutscenes = mainGame:FindFirstChild("Cutscenes", true)
+        if cutscenes then
+            for _, cutscene in pairs(cutscenes:GetChildren()) do
+                if table.find(CutsceneExclude, cutscene.Name) then continue end
 
-    local cutscenes = mainGame:FindFirstChild("Cutscenes", true)
-    if cutscenes then
-        for _, cutscene in pairs(cutscenes:GetChildren()) do
-            cutscene.Name = value and "_" .. cutscene.Name or cutscene.Name:gsub("_", "")
+                local defaultName = cutscene.Name:gsub("_", "")
+                cutscene.Name = value and "_" .. defaultName or defaultName
+            end
+        end
+    end
+
+    if floorReplicated then
+        for _, cutscene in pairs(floorReplicated:GetChildren()) do
+            if not cutscene:IsA("ModuleScript") or table.find(CutsceneExclude, cutscene.Name) then continue end
+
+            local defaultName = cutscene.Name:gsub("_", "")
+            cutscene.Name = value and "_" .. defaultName or defaultName
         end
     end
 end)
