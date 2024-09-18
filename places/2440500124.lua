@@ -4429,7 +4429,7 @@ Library:GiveSignal(playerGui.ChildAdded:Connect(function(child)
                                 module.Name = "_Screech"
                             end
                         end
-                        if isRooms and Toggles.AntiA90.Value then
+                        if (isHotel or isRooms) and Toggles.AntiA90.Value then
                             local module = mainGame:FindFirstChild("A90", true)
     
                             if module then
