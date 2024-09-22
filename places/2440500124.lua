@@ -4840,6 +4840,17 @@ Library:OnUnload(function()
         Drawing.ScreenGui:Destroy()
     end
 
+    for _, prompt in pairs(PromptTable.GamePrompts) do
+        if not prompt:IsDescendantOf(workspace) then continue end
+
+        prompt.MaxActivationDistance = prompt:GetAttribute("Distance") or 5
+        prompt.Enabled = prompt:GetAttribute("Enabled") or true
+        prompt.RequiresLineOfSight = prompt:GetAttribute("Clip") or false
+        prompt.HoldDuration = prompt:GetAttribute("Hold") or 0
+
+        prompt.Style = Enum.ProximityPromptStyle.Custom
+    end
+
     for _, connection in pairs(Script.Connections) do
         connection:Disconnect()
     end
