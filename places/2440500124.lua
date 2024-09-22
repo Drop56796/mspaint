@@ -2869,7 +2869,7 @@ task.spawn(function()
                 local function doAutoRooms()
                     local pathfindingGoal = Script.Functions.GetAutoRoomsPathfindingGoal()
 
-                    Script.Functions.Log("Calculated Objective Successfully!\nObjective: " .. pathfindingGoal.Parent.Name .. "\nCreating path...", 5, Toggles.AutoRooms.Value)
+                    Script.Functions.Log("Calculated Objective Successfully!\nObjective: " .. pathfindingGoal.Parent.Name .. "\nCreating path...", 5, Toggles.AutoRoomsDebug.Value)
 
                     local path = PathfindingService:CreatePath({
                         AgentCanJump = false,
@@ -2878,13 +2878,13 @@ task.spawn(function()
                         AgentRadius = 1
                     })
 
-                    Script.Functions.Log("Computing Path to " .. pathfindingGoal.Parent.Name .. "...", 5, Toggles.AutoRooms.Value) 
+                    Script.Functions.Log("Computing Path to " .. pathfindingGoal.Parent.Name .. "...", 5, Toggles.AutoRoomsDebug.Value) 
 
                     path:ComputeAsync(rootPart.Position - Vector3.new(0, 2.5, 0), pathfindingGoal.Position)
                     local waypoints = path:GetWaypoints()
 
                     if path.Status == Enum.PathStatus.Success then
-                        Script.Functions.Log("Computed path successfully with " .. #waypoints .. " waypoints!", 5, Toggles.AutoRooms.Value)
+                        Script.Functions.Log("Computed path successfully with " .. #waypoints .. " waypoints!", 5, Toggles.AutoRoomsDebug.Value)
 
                         _internal_mspaint_pathfinding_nodes:ClearAllChildren()
 
@@ -2936,7 +2936,7 @@ task.spawn(function()
                             if recalculate then break end
                         end
                     else
-                        Script.Functions.Log("Pathfinding failed with status " .. tostring(path.Status), 5, Toggles.AutoRooms.Value)
+                        Script.Functions.Log("Pathfinding failed with status " .. tostring(path.Status), 5, Toggles.AutoRoomsDebug.Value)
                     end
                 end
 
