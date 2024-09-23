@@ -1964,7 +1964,7 @@ local PlayerGroupBox = Tabs.Main:AddLeftGroupbox("Player") do
         Text = "Velocity Limiter",
         Default = 5,
         Min = 0,
-        Max = 50,
+        Max = 25,
         Rounding = 1
     })
 
